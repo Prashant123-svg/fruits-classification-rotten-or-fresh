@@ -1,0 +1,11 @@
+.venv
+data/
+dataset/
+models/
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+# Models
+
+models/
