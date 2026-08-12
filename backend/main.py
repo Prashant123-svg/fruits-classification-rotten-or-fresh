@@ -1,8 +1,13 @@
-from fastapi import FastAPI, File, UploadFile
+from fastapi import FastAPI, File, UploadFile, HTTPException
 from PIL import Image
 import io
-from src.inference import predict
+import traceback
+from backend.src.inference import predict
 app=FastAPI(title="Fruit Classification API",version="1.0.0")
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Fruit Classification API is running"}
 
 @app.get("/health")
 def health():
@@ -10,7 +15,12 @@ def health():
   
 @app.post("/predict")
 async def predict_route(file: UploadFile = File(...)):
-    contents = await file.read()
-    image = Image.open(io.BytesIO(contents))
-    result = predict(image)
-    return result
+    try:
+        contents = await file.read()
+        image = Image.open(io.BytesIO(contents))
+        result = predict(image)
+        return result
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail=f"Model not found: {str(e)}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Prediction failed: {str(e)}")

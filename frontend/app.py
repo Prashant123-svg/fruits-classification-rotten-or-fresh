@@ -1,5 +1,4 @@
 import os
-import io
 import requests
 import streamlit as st
 from PIL import Image
@@ -21,15 +20,14 @@ if uploaded_file is not None:
     image = Image.open(uploaded_file)
     st.image(image, caption="Uploaded Image", use_container_width=True)
 
-    img_bytes = io.BytesIO()
-    image.save(img_bytes, format="JPEG")
-    img_bytes.seek(0)
+    image_bytes = uploaded_file.getvalue()
+    content_type = uploaded_file.type or "application/octet-stream"
 
     try:
         response = requests.post(
             f"{API_URL}/predict",
             files={
-                "file": ("image.jpg", img_bytes, "image/jpeg")
+                "file": (uploaded_file.name or "image", image_bytes, content_type)
             }
         )
 
@@ -55,3 +53,5 @@ if uploaded_file is not None:
 
     except requests.exceptions.ConnectionError:
         st.error(f"❌ Could not connect to FastAPI at {API_URL}")
+    except OSError as e:
+        st.error(f"❌ Could not process the uploaded image: {e}")

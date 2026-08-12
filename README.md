@@ -1,1 +1,1 @@
-# fruit-freshness-detection
+# fruits-classification-rotten-or-fresh

@@ -1,20 +1,18 @@
 services:
     mlflow:
         image: ghcr.io/mlflow/mlflow:v2.10.0
-        command: mlflow ui --host 0.0.0.0 --port 5000
+        command: mlflow ui --host 0.0.0.0 --port 5001
         ports:
             - "5001:5001"
 
     backend:
-        build:
-            context: ..
-            dockerfile: docker/backend.dockerfile
+        image: prashanttech/fresh-rotten:backend-arm64-1.0
+        platform: linux/arm64
         environment:
-            - MODEL_PATH=/app/models/latest_model.keras
+            - MODEL_PATH=/app/models/Fruit_classification_model.h5
         ports:
             - "8000:8000"
-        depends_on:
-            - mlflow
+
 
     frontend:
         build:

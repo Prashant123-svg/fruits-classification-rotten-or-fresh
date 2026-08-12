@@ -15,17 +15,19 @@ warnings.filterwarnings(
 
 import os
 import mlflow
-import mlflow.tensorflow
 import tensorflow as tf
 
 # ---------------- MLflow ----------------
 
 def configure_mlflow():
-    mlflow.set_tracking_uri("http://127.0.0.1:5001")
-    mlflow.set_experiment("fruit-freshness")
+    tracking_uri = os.environ.get("MLFLOW_TRACKING_URI", "http://127.0.0.1:5001")
+    experiment_name = os.environ.get("MLFLOW_EXPERIMENT_NAME", "fruit-freshness")
+
+    mlflow.set_tracking_uri(tracking_uri)
+    mlflow.set_experiment(experiment_name)
 
     print("Tracking URI :", mlflow.get_tracking_uri())
-    print("Experiment   :", mlflow.get_experiment_by_name("fruit-freshness"))
+    print("Experiment   :", mlflow.get_experiment_by_name(experiment_name))
 
 # -------------- Project Paths ----------------
 
@@ -166,11 +168,15 @@ model.compile(
 )
 epochs = 20
 
+# EarlyStopping stops training when val_loss doesn't improve.
+# For this dataset/setup, use a smaller patience and a min_delta to avoid stopping on tiny fluctuations.
 early_stopping = tf.keras.callbacks.EarlyStopping(
     monitor="val_loss",
-    patience=3,
+    patience=8,
+    min_delta=1e-4,
     restore_best_weights=True
 )
+
 
 with mlflow.start_run(run_name="CNN_Fruit_Classification"):
     run = mlflow.active_run()
@@ -224,11 +230,6 @@ with mlflow.start_run(run_name="CNN_Fruit_Classification"):
 
     model.save(model_path)
 
-    mlflow.tensorflow.log_model(
-        model=model,
-        name="cnn_model"
-    )
-
-    mlflow.log_artifact(model_path)
+    mlflow.log_artifact(model_path, artifact_path="model")
 
     print("Model Logged Successfully")
