@@ -12,7 +12,6 @@ on:
 jobs:
   Build-and-Deploy:
     runs-on: ubuntu-latest
-    environment: DOCKERHUB_USERNAME
 
     steps:
       - name: Checkout
