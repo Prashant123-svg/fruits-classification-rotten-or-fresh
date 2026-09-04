@@ -12,6 +12,7 @@ on:
 jobs:
   Build-and-Deploy:
     runs-on: ubuntu-latest
+    environment: DOCKERHUB_USERNAME
 
     steps:
       - name: Checkout
@@ -19,7 +20,7 @@ jobs:
 
       - name: Docker Hub Login
         run: |
-          echo "${{ secrets.DockerHub_Token }}" | docker login -u "${{ secrets.DockerHub_Username }}" --password-stdin
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -39,7 +40,7 @@ jobs:
       - name: Prepare SSH Key
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.EC2_SSH_key }}" > ~/.ssh/ec2_key.pem
+          echo "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
           chmod 600 ~/.ssh/ec2_key.pem
           ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
 
