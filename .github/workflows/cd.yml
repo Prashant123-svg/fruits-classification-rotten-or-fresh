@@ -1,0 +1,67 @@
+name: CD-Build & Deploy Backend to EC2
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "fruits_classification/backend/**"
+      - "fruits_classification/models/**"
+      - "fruits_classification/docker/backend.dockerfile"
+      - ".github/workflows/cd.yml"
+
+jobs:
+  Build-and-Deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Docker Hub Login
+        run: |
+          echo "${{ secrets.DockerHub_Token }}" | docker login -u "${{ secrets.DockerHub_Username }}" --password-stdin
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build & Push (Multi-Arch)
+        run: |
+          docker buildx build \
+            --platform linux/amd64,linux/arm64 \
+            -t prashanttech/fresh-rotten:latest \
+            -t prashanttech/fresh-rotten:${{ github.sha }} \
+            -f fruits_classification/docker/backend.dockerfile \
+            --push fruits_classification
+
+      - name: Prepare SSH Key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.EC2_SSH_key }}" > ~/.ssh/ec2_key.pem
+          chmod 600 ~/.ssh/ec2_key.pem
+          ssh-keyscan -H ${{ secrets.EC2_HOST }} >> ~/.ssh/known_hosts
+
+      - name: Deploy on EC2 (Pull + Restart Container)
+        run: |
+          ssh -i ~/.ssh/ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            set -e
+
+            docker pull prashanttech/fresh-rotten:latest
+
+            docker rm -f fruits-backend || true
+
+            docker run -d \
+              --name fruits-backend \
+              --restart=always \
+              -p 8000:8000 \
+              -e MODEL_PATH=/app/models/Fruit_classification_model.h5 \
+              prashanttech/fresh-rotten:latest
+
+            docker image prune -f
+
+            sleep 2
+
+            curl -s http://localhost:8000/health || true
+          EOF
