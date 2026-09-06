@@ -12,6 +12,8 @@ on:
 jobs:
   Build-and-Deploy:
     runs-on: ubuntu-latest
+    env:
+      IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/fresh-rotten
 
     steps:
       - name: Checkout
@@ -31,8 +33,8 @@ jobs:
         run: |
           docker buildx build \
             --platform linux/amd64,linux/arm64 \
-            -t prashanttech/fresh-rotten:latest \
-            -t prashanttech/fresh-rotten:${{ github.sha }} \
+            -t ${{ env.IMAGE_NAME }}:latest \
+            -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
             -f fruits_classification/docker/backend.dockerfile \
             --push fruits_classification
 
@@ -48,7 +50,7 @@ jobs:
           ssh -i ~/.ssh/ec2_key.pem ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
             set -e
 
-            docker pull prashanttech/fresh-rotten:latest
+            docker pull ${{ env.IMAGE_NAME }}:latest
 
             docker rm -f fruits-backend || true
 
@@ -57,7 +59,7 @@ jobs:
               --restart=always \
               -p 8000:8000 \
               -e MODEL_PATH=/app/models/Fruit_classification_model.h5 \
-              prashanttech/fresh-rotten:latest
+              ${{ env.IMAGE_NAME }}:latest
 
             docker image prune -f
 
