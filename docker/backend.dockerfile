@@ -1,3 +1,5 @@
+FROM --platform=linux/arm64 prashanttech/fresh-rotten:backend-arm64-1.0 AS model_source
+
 FROM python:3.10-slim
 
 WORKDIR /app
@@ -14,7 +16,7 @@ RUN pip install --no-cache-dir --upgrade pip && \
     pip install --no-cache-dir -r /app/requirements.txt
 
 COPY backend /app/backend
-COPY models /app/models
+COPY --from=model_source /app/models /app/models
 
 ENV PYTHONPATH=/app
 ENV MODEL_PATH=/app/models/Fruit_classification_model.h5
