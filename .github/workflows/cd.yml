@@ -12,6 +12,7 @@ on:
 jobs:
   Build-and-Deploy:
     runs-on: ubuntu-latest
+
     env:
       IMAGE_NAME: ${{ secrets.DOCKERHUB_USERNAME }}/fresh-rotten
 
@@ -20,9 +21,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Docker Hub Login
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
-            -u "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v3
@@ -30,33 +32,44 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Build & Push (ARM64)
-        run: |
-          docker buildx build \
-            --platform linux/arm64 \
-            -t ${{ env.IMAGE_NAME }}:latest \
-            -t ${{ env.IMAGE_NAME }}:${{ github.sha }} \
-            -f docker/backend.dockerfile \
-            --push .
+      - name: Build & Push Multi-Architecture Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/backend.dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/fresh-rotten:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/fresh-rotten:${{ github.sha }}
 
       - name: Prepare SSH Key
+        env:
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          EC2_HOST: ${{ secrets.EC2_HOST }}
         run: |
           mkdir -p ~/.ssh
-          printf '%s\n' "${{ secrets.EC2_SSH_KEY }}" > ~/.ssh/ec2_key.pem
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2_key.pem
           chmod 600 ~/.ssh/ec2_key.pem
-          ssh-keyscan -H "${{ secrets.EC2_HOST }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
-      - name: Deploy on EC2 (Pull + Restart Container)
+      - name: Deploy on EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
         run: |
           ssh -i ~/.ssh/ec2_key.pem \
-            "${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}" << 'EOF'
-            set -e
+            "$EC2_USER@$EC2_HOST" \
+            'bash -s' <<'EOF'
+            set -eu
 
-            IMAGE_NAME='${{ env.IMAGE_NAME }}'
+            IMAGE_NAME="prashanttech/fresh-rotten"
 
+            echo "Pulling ARM64 image..."
             docker pull --platform linux/arm64 "${IMAGE_NAME}:latest"
 
-            docker rm -f fruits-backend || true
+            echo "Replacing backend container..."
+            docker rm -f fruits-backend 2>/dev/null || true
 
             docker run -d \
               --platform linux/arm64 \
@@ -68,12 +81,19 @@ jobs:
 
             sleep 5
 
+            echo "Container status:"
             docker ps --filter name=fruits-backend
 
+            echo "Backend logs:"
             docker logs --tail 50 fruits-backend
 
-            curl --fail --show-error \
-              http://localhost:8000/health
+            echo "Checking backend health..."
+            if ! curl --fail --show-error \
+              http://localhost:8000/health; then
+              echo "Health check failed."
+              exit 1
+            fi
 
+            echo "Deployment health check passed."
             docker image prune -f
           EOF
