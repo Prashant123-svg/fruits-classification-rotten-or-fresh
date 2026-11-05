@@ -7,7 +7,7 @@ from backend.src.inference import predict
 from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
 import time
 from backend.metrics import REQUEST_COUNT, REQUEST_LATENCY, PREDICTION_COUNT
-from src.prediction_log import log_prediction
+from backend.prediction_log import log_prediction
 app = FastAPI(title="Fruit Classification API", version="1.0.0")
 
 @app.middleware("http")
