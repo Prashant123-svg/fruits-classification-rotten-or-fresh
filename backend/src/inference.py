@@ -85,6 +85,7 @@ def predict(image: Image.Image) -> dict:
         confidence = score if label == "rotten" else 1.0 - score
         pretty_label = "Rotten" if label == "rotten" else "Fresh"
         return {
+            "label": label,
             "Label": label,
             "confidence": float(confidence),
             "raw-score": score,
@@ -95,6 +96,7 @@ def predict(image: Image.Image) -> dict:
     probs = y[0].astype(float)
     idx = int(np.argmax(probs))
     return {
+        "label": str(idx),
         "Label": str(idx),
         "confidence": float(probs[idx]),
         "raw-score": probs.tolist(),
