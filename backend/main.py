@@ -37,10 +37,13 @@ async def predict_route(file: UploadFile = File(...)):
         contents = await file.read()
         image = Image.open(io.BytesIO(contents))
         result = predict(image)
+        label = result.get("label", result.get("Label"))
+        if label is None:
+            raise ValueError("Prediction result is missing a label")
 
-        PREDICTION_COUNT.labels(label=result["label"]).inc()
+        PREDICTION_COUNT.labels(label=label).inc()
 
-        log_prediction(file.filename, result["label"], result["confidence"])
+        log_prediction(file.filename, label, result["confidence"])
 
         return result
 
